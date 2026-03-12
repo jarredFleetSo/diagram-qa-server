@@ -95,9 +95,11 @@ async function getSettings() {
 }
 
 async function handleGeminiServer(message) {
-  const { imageData, prompt, apiKey, model } = message;
-  const base64 = imageData.replace(/^data:image\/\w+;base64,/, '');
-  const imageBytes = base64ToUint8Array(base64);
+  const { imageData, imageDataAll, prompt, apiKey, model } = message;
+
+  // Collect all images as base64 strings
+  const allImages = imageDataAll || (imageData ? [imageData] : []);
+  const base64Images = allImages.map(img => img.replace(/^data:image\/\w+;base64,/, ''));
 
   const settings = await getSettings();
   const serverUrl = settings.serverUrl || '';
@@ -109,8 +111,7 @@ async function handleGeminiServer(message) {
 
   try {
     const headers = {
-      'Content-Type': 'application/octet-stream',
-      'x-prompt': prompt,
+      'Content-Type': 'application/json',
       'x-gemini-api-key': apiKey || '',
       'x-gemini-model': model || ''
     };
@@ -121,7 +122,7 @@ async function handleGeminiServer(message) {
     const response = await fetch(`${serverUrl}/run`, {
       method: 'POST',
       headers,
-      body: imageBytes
+      body: JSON.stringify({ prompt, images: base64Images })
     });
 
     if (!response.ok) {

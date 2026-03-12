@@ -32,15 +32,14 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Run Gemini with image + prompt via REST API (streaming SSE)
-app.post('/run', express.raw({ type: '*/*', limit: '50mb' }), async (req, res) => {
+// Run Gemini with image(s) + prompt via REST API (streaming SSE)
+app.post('/run', express.json({ limit: '50mb' }), async (req, res) => {
   const apiKey = req.headers['x-gemini-api-key'] || '';
   const model = req.headers['x-gemini-model'] || 'gemini-3.1-pro-preview';
-  const prompt = req.headers['x-prompt'] || '';
-  const imageData = req.body;
+  const { prompt, images } = req.body || {};
 
   if (!prompt) {
-    return res.status(400).json({ error: 'Missing x-prompt header' });
+    return res.status(400).json({ error: 'Missing prompt' });
   }
 
   if (!apiKey) {
@@ -54,19 +53,18 @@ app.post('/run', express.raw({ type: '*/*', limit: '50mb' }), async (req, res) =
   });
 
   try {
-    const base64Image = imageData && imageData.length > 0
-      ? imageData.toString('base64')
-      : null;
-
     const parts = [];
 
-    if (base64Image) {
-      parts.push({
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: base64Image
-        }
-      });
+    // Add all images
+    if (images && images.length > 0) {
+      for (const base64Image of images) {
+        parts.push({
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: base64Image
+          }
+        });
+      }
     }
 
     parts.push({ text: prompt });

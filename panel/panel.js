@@ -14,14 +14,13 @@ const modelSelect = document.getElementById('model');
 const runsList = document.getElementById('runsList');
 
 let images = []; // { id, dataUrl, label }
-let selectedImageId = null;
+let selectedImageIds = new Set();
 let imageCounter = 0;
 let runs = [];
 let activeRunId = null;
 
-function getSelectedImage() {
-  const img = images.find(i => i.id === selectedImageId);
-  return img ? img.dataUrl : null;
+function getSelectedImages() {
+  return images.filter(i => selectedImageIds.has(i.id)).map(i => i.dataUrl);
 }
 
 // Settings
@@ -97,7 +96,8 @@ async function init() {
   if (data.capturedImages && data.capturedImages.length > 0) {
     images = data.capturedImages;
     imageCounter = Math.max(...images.map(i => i.id)) + 1;
-    selectedImageId = images[images.length - 1].id;
+    // Select all by default on restore
+    images.forEach(i => selectedImageIds.add(i.id));
     renderGallery();
   }
   if (data.captureError) {
@@ -108,7 +108,7 @@ async function init() {
 init();
 
 function updateRunButton() {
-  runBtn.disabled = !(getSelectedImage() && promptInput.value.trim() && expectedInput.value.trim());
+  runBtn.disabled = !(selectedImageIds.size > 0 && promptInput.value.trim() && expectedInput.value.trim());
 }
 
 promptInput.addEventListener('input', () => {
@@ -124,7 +124,7 @@ expectedInput.addEventListener('input', () => {
 function addImage(dataUrl) {
   const id = imageCounter++;
   images.push({ id, dataUrl, label: `#${id + 1}` });
-  selectedImageId = id;
+  selectedImageIds.add(id);
   saveImages();
   renderGallery();
   updateRunButton();
@@ -132,16 +132,18 @@ function addImage(dataUrl) {
 
 function removeImage(id) {
   images = images.filter(i => i.id !== id);
-  if (selectedImageId === id) {
-    selectedImageId = images.length > 0 ? images[images.length - 1].id : null;
-  }
+  selectedImageIds.delete(id);
   saveImages();
   renderGallery();
   updateRunButton();
 }
 
-function selectImage(id) {
-  selectedImageId = id;
+function toggleImageSelection(id) {
+  if (selectedImageIds.has(id)) {
+    selectedImageIds.delete(id);
+  } else {
+    selectedImageIds.add(id);
+  }
   renderGallery();
   updateRunButton();
 }
@@ -162,14 +164,14 @@ function renderGallery() {
   imageGallery.innerHTML = '';
   images.forEach(img => {
     const item = document.createElement('div');
-    item.className = 'gallery-item' + (img.id === selectedImageId ? ' selected' : '');
+    item.className = 'gallery-item' + (selectedImageIds.has(img.id) ? ' selected' : '');
     item.innerHTML = `
       <img src="${img.dataUrl}" alt="Capture ${img.label}">
       <button class="gallery-item-remove" data-img-id="${img.id}">&times;</button>
       <div class="gallery-item-label">${img.label}</div>`;
     item.addEventListener('click', (e) => {
       if (e.target.classList.contains('gallery-item-remove')) return;
-      selectImage(img.id);
+      toggleImageSelection(img.id);
     });
     const removeBtn = item.querySelector('.gallery-item-remove');
     removeBtn.addEventListener('click', (e) => {
@@ -182,7 +184,7 @@ function renderGallery() {
 
 clearAllImagesBtn.addEventListener('click', () => {
   images = [];
-  selectedImageId = null;
+  selectedImageIds.clear();
   saveImages();
   renderGallery();
   updateRunButton();
@@ -249,15 +251,16 @@ captureBtn.addEventListener('click', async () => {
 runBtn.addEventListener('click', async () => {
   const prompt = promptInput.value.trim();
   const expected = expectedInput.value.trim();
-  const currentImage = getSelectedImage();
-  if (!currentImage || !prompt || !expected) return;
+  const currentImages = getSelectedImages();
+  if (currentImages.length === 0 || !prompt || !expected) return;
 
   const runId = runs.length;
   const run = {
     id: runId,
     question: prompt,
     expected: expected,
-    imageData: currentImage,
+    imageData: currentImages[0],
+    imageDataAll: currentImages,
     status: 'running',
     output: '',
     result: '',
@@ -273,7 +276,8 @@ runBtn.addEventListener('click', async () => {
   const settings = await chrome.storage.local.get(['geminiApiKey', 'geminiModel']);
   chrome.runtime.sendMessage({
     action: 'runGemini',
-    imageData: currentImage,
+    imageData: currentImages[0],
+    imageDataAll: currentImages,
     prompt: prompt,
     apiKey: settings.geminiApiKey || '',
     model: settings.geminiModel || ''
@@ -363,9 +367,12 @@ function buildCardHTML(run) {
 
   let bodyHTML = '';
 
-  // Image thumbnail
-  if (run.imageData) {
-    bodyHTML += `<div class="run-image-thumb"><img src="${run.imageData}" alt="Captured region"></div>`;
+  // Image thumbnails
+  const allImages = run.imageDataAll || (run.imageData ? [run.imageData] : []);
+  if (allImages.length > 0) {
+    bodyHTML += `<div class="run-image-thumb">${allImages.map((img, i) =>
+      `<img src="${img}" alt="Image ${i + 1}">`
+    ).join('')}</div>`;
   }
 
   // Editable prompt/expected when done
@@ -480,16 +487,16 @@ function attachCardHandlers(card) {
       const editExpected = card.querySelector('.run-edit-expected');
       const newQuestion = editPrompt ? editPrompt.value.trim() : oldRun.question;
       const newExpected = editExpected ? editExpected.value.trim() : oldRun.expected;
-      const img = oldRun.imageData || capturedImage;
-
-      if (!img || !newQuestion || !newExpected) return;
+      const allImages = oldRun.imageDataAll || (oldRun.imageData ? [oldRun.imageData] : getSelectedImages());
+      if (allImages.length === 0 || !newQuestion || !newExpected) return;
 
       const runId = runs.length;
       const run = {
         id: runId,
         question: newQuestion,
         expected: newExpected,
-        imageData: img,
+        imageData: allImages[0],
+        imageDataAll: allImages,
         status: 'running',
         output: '',
         result: '',
@@ -505,7 +512,8 @@ function attachCardHandlers(card) {
       const settings = await chrome.storage.local.get(['geminiApiKey', 'geminiModel']);
       chrome.runtime.sendMessage({
         action: 'runGemini',
-        imageData: img,
+        imageData: allImages[0],
+        imageDataAll: allImages,
         prompt: newQuestion,
         apiKey: settings.geminiApiKey || '',
         model: settings.geminiModel || ''
@@ -623,10 +631,14 @@ function buildRunZipFolder(zip, run, prefix) {
   folder.file('prompt.txt', run.question);
   folder.file('answer.txt', run.expected);
 
-  if (run.imageData) {
-    const ext = run.imageData.startsWith('data:image/png') ? 'png' : 'jpg';
+  const allImages = run.imageDataAll || (run.imageData ? [run.imageData] : []);
+  if (allImages.length > 0) {
     const artifacts = folder.folder('artifacts');
-    artifacts.file(`image.${ext}`, base64ToUint8Array(run.imageData));
+    allImages.forEach((img, i) => {
+      const ext = img.startsWith('data:image/png') ? 'png' : 'jpg';
+      const name = allImages.length === 1 ? `image.${ext}` : `image_${i + 1}.${ext}`;
+      artifacts.file(name, base64ToUint8Array(img));
+    });
   }
 
   if (run.result) {
@@ -686,3 +698,31 @@ createRunCard = function(run) {
   origCreateRunCard(run);
   exportAllSection.classList.remove('hidden');
 };
+
+// ---- Lightbox ----
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+const lightboxClose = document.getElementById('lightboxClose');
+const lightboxBackdrop = lightbox.querySelector('.lightbox-backdrop');
+
+function openLightbox(src) {
+  lightboxImg.src = src;
+  lightbox.classList.remove('hidden');
+}
+
+function closeLightbox() {
+  lightbox.classList.add('hidden');
+  lightboxImg.src = '';
+}
+
+lightboxClose.addEventListener('click', closeLightbox);
+lightboxBackdrop.addEventListener('click', closeLightbox);
+
+// Delegate click on any image in gallery or run cards
+document.addEventListener('click', (e) => {
+  const img = e.target.closest('.gallery-item img, .run-image-thumb img');
+  if (img) {
+    e.stopPropagation();
+    openLightbox(img.src);
+  }
+});
