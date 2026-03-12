@@ -72,6 +72,11 @@ app.post('/run', express.raw({ type: '*/*', limit: '50mb' }), async (req, res) =
     parts.push({ text: prompt });
 
     const requestBody = {
+      systemInstruction: {
+        parts: [{
+          text: 'You are a visual analysis expert. When answering questions about images, charts, or diagrams, give your answer directly and concisely. Do NOT show your reasoning process, do NOT number your steps, do NOT explain how you arrived at the answer. Just state the answer clearly.'
+        }]
+      },
       contents: [{ parts }],
       generationConfig: {
         temperature: 0.7,
