@@ -198,20 +198,52 @@ async function handleEvalServer(message) {
       return;
     }
 
-    let cleaned = data.result.trim();
-    cleaned = cleaned.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-
-    // Try to extract JSON object even if surrounded by other text
-    const jsonMatch = cleaned.match(/\{[\s\S]*"overall"[\s\S]*\}/);
-    if (jsonMatch) {
-      cleaned = jsonMatch[0];
-    }
-
-    const evalData = JSON.parse(cleaned);
+    const evalData = parseEvalJSON(data.result);
     chrome.runtime.sendMessage({ action: 'evalResult', runId, evaluation: evalData }).catch(() => {});
   } catch (e) {
     chrome.runtime.sendMessage({ action: 'evalError', runId, error: `Eval failed: ${e.message}` }).catch(() => {});
   }
+}
+
+function parseEvalJSON(raw) {
+  let text = raw.trim();
+
+  // Strip markdown fences
+  text = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+
+  // Try direct parse first
+  try { return JSON.parse(text); } catch (e) {}
+
+  // Extract JSON object with regex
+  const match = text.match(/\{[^{}]*"overall"\s*:\s*\d+[^{}]*\}/);
+  if (match) {
+    // Fix common issues: newlines in strings, unescaped quotes
+    let json = match[0];
+    // Replace literal newlines inside string values
+    json = json.replace(/"reasoning"\s*:\s*"([\s\S]*?)"\s*}/,
+      (m, reasoning) => `"reasoning":"${reasoning.replace(/\n/g, ' ').replace(/"/g, "'")}"}`
+    );
+    try { return JSON.parse(json); } catch (e) {}
+  }
+
+  // Last resort: extract numbers manually
+  const overall = text.match(/"overall"\s*:\s*(\d+)/);
+  const semantic = text.match(/"semantic_match"\s*:\s*(\d+)/);
+  const facts = text.match(/"key_facts"\s*:\s*(\d+)/);
+  const completeness = text.match(/"completeness"\s*:\s*(\d+)/);
+  const reasoning = text.match(/"reasoning"\s*:\s*"([^"]*)"/);
+
+  if (overall) {
+    return {
+      overall: parseInt(overall[1]),
+      semantic_match: semantic ? parseInt(semantic[1]) : 0,
+      key_facts: facts ? parseInt(facts[1]) : 0,
+      completeness: completeness ? parseInt(completeness[1]) : 0,
+      reasoning: reasoning ? reasoning[1] : 'Parsed from partial response'
+    };
+  }
+
+  throw new Error('Could not parse evaluation response');
 }
 
 function buildEvalPrompt(prompt, expected, actual) {

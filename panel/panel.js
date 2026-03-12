@@ -400,7 +400,7 @@ function buildCardHTML(run) {
           </div>
           <div>
             <div class="run-result-label">Gemini's Answer</div>
-            <div class="run-result-box">${escapeHTML(run.result)}</div>
+            <div class="run-result-box">${renderMarkdown(run.result)}</div>
           </div>
         </div>
       </div>`;
@@ -594,6 +594,15 @@ function escapeHTML(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function renderMarkdown(str) {
+  let html = escapeHTML(str);
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+  html = html.replace(/\n/g, '<br>');
+  return html;
 }
 
 // ---- Export ----
