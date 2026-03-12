@@ -158,10 +158,16 @@ app.post('/eval', express.json({ limit: '1mb' }), async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        systemInstruction: {
+          parts: [{
+            text: 'You are a JSON-only evaluation bot. You MUST respond with ONLY a valid JSON object. No markdown, no explanation, no code fences. Just raw JSON.'
+          }]
+        },
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 1024
+          maxOutputTokens: 1024,
+          responseMimeType: 'application/json'
         }
       })
     });

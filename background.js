@@ -200,6 +200,13 @@ async function handleEvalServer(message) {
 
     let cleaned = data.result.trim();
     cleaned = cleaned.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+
+    // Try to extract JSON object even if surrounded by other text
+    const jsonMatch = cleaned.match(/\{[\s\S]*"overall"[\s\S]*\}/);
+    if (jsonMatch) {
+      cleaned = jsonMatch[0];
+    }
+
     const evalData = JSON.parse(cleaned);
     chrome.runtime.sendMessage({ action: 'evalResult', runId, evaluation: evalData }).catch(() => {});
   } catch (e) {
@@ -208,21 +215,21 @@ async function handleEvalServer(message) {
 }
 
 function buildEvalPrompt(prompt, expected, actual) {
-  return `You are an RL reward model evaluating an agent's answer against an expected answer.
+  // Escape special chars to prevent JSON parsing issues
+  const safeExpected = expected.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const safeActual = actual.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const safePrompt = prompt.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
-QUESTION: ${prompt}
+  return `Evaluate this AI answer. Return ONLY a JSON object, nothing else.
 
-EXPECTED ANSWER: ${expected}
+Question: "${safePrompt}"
+Expected: "${safeExpected}"
+Actual: "${safeActual}"
 
-AGENT'S ANSWER: ${actual}
+Score 0-100 on: semantic_match, key_facts, completeness.
+Overall = semantic*0.4 + facts*0.35 + completeness*0.25.
+Add brief reasoning.
 
-Score the agent's answer on these dimensions (0-100 each):
-1. semantic_match: How semantically similar is the agent's answer to the expected answer?
-2. key_facts: What percentage of the key facts from the expected answer appear in the agent's answer?
-3. completeness: How complete is the agent's answer relative to what was expected?
-
-Also compute an overall score (weighted average: semantic 40%, key_facts 35%, completeness 25%).
-
-Respond ONLY with valid JSON, no markdown, no code fences:
-{"overall": <int>, "semantic_match": <int>, "key_facts": <int>, "completeness": <int>, "reasoning": "<brief 1-2 sentence explanation>"}`;
+Return ONLY this JSON:
+{"overall":N,"semantic_match":N,"key_facts":N,"completeness":N,"reasoning":"..."}`;
 }
