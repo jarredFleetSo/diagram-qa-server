@@ -75,7 +75,7 @@ app.post('/run', express.raw({ type: '*/*', limit: '50mb' }), async (req, res) =
       contents: [{ parts }],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 4096
+        maxOutputTokens: 8192
       }
     };
 
