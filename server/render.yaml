@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: diagram-qa-api
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: SERVER_PASSWORD
+        sync: false
+      - key: NODE_ENV
+        value: production

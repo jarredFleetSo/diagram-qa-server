@@ -1,0 +1,16 @@
+{
+  "name": "diagram-qa-server",
+  "version": "1.0.0",
+  "description": "Backend API for Diagram Q&A - calls Gemini REST API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

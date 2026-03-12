@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagram Q&A</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header-row">
+      <h1>Diagram Q&A</h1>
+      <button id="settingsBtn" class="btn-icon" title="Settings">&#9881;</button>
+    </div>
+
+    <div id="welcome" class="welcome hidden">
+      <h2>Welcome! Let's get set up.</h2>
+      <p>Enter your server URL and Gemini API key to get started.</p>
+      <label for="welcomeServerUrl">Server URL</label>
+      <input type="url" id="welcomeServerUrl" class="welcome-input" placeholder="https://your-server.onrender.com">
+      <label for="welcomeServerPassword">Server Password <span class="optional">(if set)</span></label>
+      <input type="password" id="welcomeServerPassword" class="welcome-input" placeholder="Leave blank if none">
+      <label for="welcomeApiKey">Gemini API Key</label>
+      <p class="welcome-hint">Don't have one? <a href="https://aistudio.google.com/apikey" target="_blank">Get a free key here</a></p>
+      <input type="password" id="welcomeApiKey" class="welcome-input" placeholder="Paste your API key here">
+      <label for="welcomeModel">Model</label>
+      <select id="welcomeModel">
+        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+      </select>
+      <button id="welcomeSave" class="btn btn-run" style="margin-top:12px">Get Started</button>
+    </div>
+
+    <div id="mainUI">
+
+    <div id="settingsPanel" class="settings-panel hidden">
+      <label for="serverUrl">Server URL</label>
+      <input type="url" id="serverUrl" class="settings-input" placeholder="https://your-server.onrender.com">
+      <label for="serverPassword">Server Password</label>
+      <input type="password" id="serverPassword" class="settings-input" placeholder="Leave blank if none">
+      <label for="apiKey">Gemini API Key</label>
+      <div class="api-key-row">
+        <input type="password" id="apiKey" placeholder="Enter your Gemini API key">
+        <button id="toggleKey" class="btn-icon" title="Show/hide key">&#128065;</button>
+      </div>
+      <label for="model">Model</label>
+      <select id="model">
+        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+      </select>
+      <button id="saveSettings" class="btn btn-small">Save</button>
+      <span id="settingsSaved" class="key-saved hidden">Saved!</span>
+    </div>
+
+    <div class="section">
+      <div class="capture-row">
+        <button id="captureBtn" class="btn btn-primary">+ Capture</button>
+        <button id="clearAllImagesBtn" class="btn btn-reset hidden">Clear All</button>
+      </div>
+      <div id="imageGallery" class="image-gallery hidden"></div>
+    </div>
+
+    <div class="section">
+      <label for="prompt">Question / Prompt</label>
+      <textarea id="prompt" rows="2" placeholder="e.g., What does this flowchart describe?"></textarea>
+    </div>
+
+    <div class="section">
+      <label for="expected">Expected Answer (verifier)</label>
+      <textarea id="expected" rows="2" placeholder="e.g., A user authentication flow with OAuth2"></textarea>
+    </div>
+
+    <div class="section">
+      <button id="runBtn" class="btn btn-run" disabled>Run</button>
+    </div>
+
+    <div id="exportAllSection" class="section hidden">
+      <button id="exportAllBtn" class="btn btn-export-all">Export All Runs</button>
+    </div>
+
+    <div id="runsList" class="runs-list"></div>
+
+    </div><!-- end mainUI -->
+  </div>
+
+  <script src="jszip.min.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>
